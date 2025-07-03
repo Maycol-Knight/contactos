@@ -146,7 +146,7 @@ import ConfirmacionModal from '../components/ConfirmacionModal.astro';
         { id: '6', nombre: 'Javier Lopez', telefono: '321654987', email: 'javier.l@example.com' },
         { id: '7', nombre: 'Lucia Fernandez', telefono: '789123456', email: 'lucia.f@example.com' }
     ];
-    let idParaEliminar = null;
+    let idParaEliminar = null; // Variable temporal para confirmar eliminación
 
     // Seleccionamos los elementos que se van a ocultar/mostrar
     const vistaLista = document.getElementById('vista-lista');
@@ -154,78 +154,125 @@ import ConfirmacionModal from '../components/ConfirmacionModal.astro';
     const botonAgregar = document.getElementById('boton-agregar');
     const headerPrincipal = document.querySelector('header');
 
+    // Función para alternar entre vista lista y formulario
     function cambiarVista(vistaAMostrar) {
         if (vistaAMostrar === 'formulario') {
+            // Ocultar elementos de la lista
             vistaLista.classList.add('hidden');
             botonAgregar.classList.add('hidden');
-            // Ocultamos el header para dar más espacio al formulario
-            headerPrincipal.classList.add('hidden'); 
+            headerPrincipal.classList.add('hidden'); // Más espacio para el formulario
             
+            // Mostrar formulario
             vistaFormulario.classList.remove('hidden');
         } else { // Volviendo a la lista
+            // Ocultar formulario
             vistaFormulario.classList.add('hidden');
             
+            // Mostrar elementos de la lista
             vistaLista.classList.remove('hidden');
             botonAgregar.classList.remove('hidden');
             headerPrincipal.classList.remove('hidden');
         }
     }
     
-    // El resto del script es idéntico y correcto
+    // Función central para actualizar la vista con nueva lista de contactos
     function actualizarYRenderizar(listaAFiltrar = contactos) {
+        // Envía evento al componente ListaContactos para que se re-renderice
         document.dispatchEvent(new CustomEvent('actualizar-lista', { detail: { contactos: listaAFiltrar } }));
     }
+
+    // INICIALIZACIÓN: Renderiza la lista cuando carga la página
     document.addEventListener('DOMContentLoaded', () => {
-        actualizarYRenderizar();
+        actualizarYRenderizar(); // Muestra todos los contactos inicialmente
     });
+
+    // GUARDAR/ACTUALIZAR CONTACTO: Maneja tanto creación como edición
     document.addEventListener('guardar-contacto', (evento) => {
-        const contactoRecibido = evento.detail;
+        const contactoRecibido = evento.detail; // Datos del formulario
+        
+        // Busca si ya existe el contacto (para edición)
         const indice = contactos.findIndex(c => c.id === contactoRecibido.id);
+        
         if (indice !== -1) {
+            // EDICIÓN: Reemplaza el contacto existente
             contactos[indice] = contactoRecibido;
-            document.dispatchEvent(new CustomEvent('mostrar-notificacion', { detail: { mensaje: 'Contacto actualizado.', tipo: 'exito' } }));
+            document.dispatchEvent(new CustomEvent('mostrar-notificacion', { 
+                detail: { mensaje: 'Contacto actualizado.', tipo: 'exito' } 
+            }));
         } else {
+            // CREACIÓN: Añade nuevo contacto al inicio del array
             contactos.unshift(contactoRecibido);
-            document.dispatchEvent(new CustomEvent('mostrar-notificacion', { detail: { mensaje: 'Contacto guardado.', tipo: 'exito' } }));
+            document.dispatchEvent(new CustomEvent('mostrar-notificacion', { 
+                detail: { mensaje: 'Contacto guardado.', tipo: 'exito' } 
+            }));
         }
-        actualizarYRenderizar();
-        cambiarVista('lista');
+        
+        actualizarYRenderizar(); // Actualiza la vista con los cambios
+        cambiarVista('lista');   // Regresa automáticamente a la lista
     });
+
+    // EDITAR CONTACTO: Carga datos en formulario y cambia vista
     document.addEventListener('solicitar-edicion', (evento) => {
+        // Busca el contacto por ID
         const contacto = contactos.find(c => c.id === evento.detail.id);
+        
         if (contacto) {
+            // Envía los datos al formulario para pre-cargar campos
             document.dispatchEvent(new CustomEvent('cargar-datos-formulario', { detail: contacto }));
-            cambiarVista('formulario');
+            cambiarVista('formulario'); // Cambia a vista de edición
         }
     });
+
+    // SOLICITAR ELIMINACIÓN: Prepara eliminación pero espera confirmación
     document.addEventListener('solicitar-eliminacion', (evento) => {
-        // Correcto: NO se llama a cambiarVista()
+        // Guarda ID temporalmente (no elimina aún)
         idParaEliminar = evento.detail.id;
+        
+        // Muestra modal de confirmación
         document.dispatchEvent(new CustomEvent('mostrar-confirmacion-eliminar'));
     });
+
+    // CONFIRMAR ELIMINACIÓN: Elimina definitivamente después de confirmación
     document.addEventListener('confirmar-eliminacion-final', () => {
-        // Correcto: NO se llama a cambiarVista()
         if (idParaEliminar) {
+            // Elimina del array usando filter (excluye el ID)
             contactos = contactos.filter(c => c.id !== idParaEliminar);
-            actualizarYRenderizar();
-            document.dispatchEvent(new CustomEvent('mostrar-notificacion', { detail: { mensaje: 'Contacto eliminado.', tipo: 'info' } }));
-            idParaEliminar = null; 
+            
+            actualizarYRenderizar(); // Actualiza vista sin el contacto eliminado
+            
+            // Muestra notificación de confirmación
+            document.dispatchEvent(new CustomEvent('mostrar-notificacion', { 
+                detail: { mensaje: 'Contacto eliminado.', tipo: 'info' } 
+            }));
+            
+            idParaEliminar = null; // Limpia la variable temporal
         }
     });
+
+    // FILTRAR CONTACTOS: Búsqueda en tiempo real por múltiples campos
     document.addEventListener('filtrar-contactos', (evento) => {
-        const termino = evento.detail.termino.toLowerCase();
+        const termino = evento.detail.termino.toLowerCase(); // Insensible a mayúsculas
+        
+        // Filtra por nombre, teléfono Y email usando OR lógico
         const contactosFiltrados = contactos.filter(c => 
             c.nombre.toLowerCase().includes(termino) ||
             c.telefono.toLowerCase().includes(termino) ||
             c.email.toLowerCase().includes(termino)
         );
+        
+        // Renderiza solo los resultados que coinciden
         actualizarYRenderizar(contactosFiltrados);
     });
+
+    // BOTÓN AGREGAR: Abre formulario limpio para nuevo contacto
     botonAgregar.addEventListener('click', () => {
+        // Limpia campos del formulario
         document.dispatchEvent(new CustomEvent('limpiar-formulario'));
-        cambiarVista('formulario');
+        cambiarVista('formulario'); // Cambia a vista de creación
     });
+
+    // CANCELAR OPERACIÓN: Regresa a lista sin guardar cambios
     document.addEventListener('operacion-cancelada', () => {
-        cambiarVista('lista');
+        cambiarVista('lista'); // Navegación simple de regreso
     });
 </script>
